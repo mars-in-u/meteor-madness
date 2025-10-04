@@ -1,30 +1,43 @@
-let targetRotationX = 0.005;
-let targetRotationY = 0.002;
-let mouseX = 0, mouseXOnMouseDown = 0, mouseY = 0, mouseYOnMouseDown = 0;
-const windowHalfX = window.innerWidth / 2;
-const windowHalfY = window.innerHeight / 2;
-const slowingFactor = 0.98;
-const dragFactor = 0.0002;
+let isDragging = false;
+let previousMouseX = 0;
+let previousMouseY = 0;
+let rotationY = 0; // Y-axis rotation (left-right)
+let rotationX = 0; // X-axis rotation (up-down)
+const maxPoleRotation = Math.PI / 2.5; // Limit to prevent going over poles
 
 function onDocumentMouseDown(event) {
     event.preventDefault();
-    document.addEventListener('mousemove', onDocumentMouseMove, false);
-    document.addEventListener('mouseup', onDocumentMouseUp, false);
-    mouseXOnMouseDown = event.clientX - windowHalfX;
-    mouseYOnMouseDown = event.clientY - windowHalfY;
+    isDragging = true;
+    previousMouseX = event.clientX;
+    previousMouseY = event.clientY;
 }
 
 function onDocumentMouseMove(event) {
-    mouseX = event.clientX - windowHalfX;
-    targetRotationX = (mouseX - mouseXOnMouseDown) * dragFactor;
-    mouseY = event.clientY - windowHalfY;
-    targetRotationY = (mouseY - mouseYOnMouseDown) * dragFactor;
+    if (!isDragging) return;
+    
+    const deltaX = event.clientX - previousMouseX;
+    const deltaY = event.clientY - previousMouseY;
+    
+    previousMouseX = event.clientX;
+    previousMouseY = event.clientY;
+    
+    // Update rotations based on mouse movement
+    rotationY += deltaX * 0.005;
+    
+    // Constrain X rotation to prevent going over poles
+    const newRotationX = rotationX + deltaY * 0.005;
+    if (newRotationX >= -maxPoleRotation && newRotationX <= maxPoleRotation) {
+        rotationX = newRotationX;
+    }
 }
 
 function onDocumentMouseUp(event) {
-    document.removeEventListener('mousemove', onDocumentMouseMove, false);
-    document.removeEventListener('mouseup', onDocumentMouseUp, false);
+    isDragging = false;
 }
+
+document.addEventListener('mousedown', onDocumentMouseDown, false);
+document.addEventListener('mousemove', onDocumentMouseMove, false);
+document.addEventListener('mouseup', onDocumentMouseUp, false);
 
 function main() {
     const scene = new THREE.Scene();
@@ -57,8 +70,10 @@ function main() {
     camera.position.z = 1.7;
 
     const render = () => {
-        earthMesh.rotateOnWorldAxis(new THREE.Vector3(0, 1, 0), targetRotationX);
-        earthMesh.rotateOnWorldAxis(new THREE.Vector3(1, 0, 0), targetRotationY);
+        // Apply rotation using Euler angles to prevent gimbal lock and flipping
+        earthMesh.rotation.y = rotationY;
+        earthMesh.rotation.x = rotationX;
+        
         renderer.render(scene, camera);
     }
     const animate = () => {
@@ -66,6 +81,5 @@ function main() {
         render();
     }
     animate();
-    document.addEventListener('mousedown', onDocumentMouseDown, false);
 }
 window.onload = main;
